@@ -9,6 +9,7 @@ const config = require('./config.json');
 // ip 如果在 query string 中出现, 则设定为该 ip, 否则设定为访问客户端的 ip
 const getTarget = req => {
   return {
+    token: url.parse(req.url, true).query.token,
     hostname: url.parse(req.url, true).query.hostname,
     ip: url.parse(req.url, true).query.ip
     || req.headers[config.clientIpHeader.toLowerCase()]
@@ -56,6 +57,11 @@ const updateRecord = (target, callback) => {
       .on('data', chunk => body.push(chunk))
       .on('end', () => {
         body = Buffer.concat(body).toString();
+        if(res.statusCode !== 200) {
+          callback('error', body);
+          return;
+        }
+
         const result = JSON.parse(body);
         // 获取要更新的域名的 RecordId, 并检查是否需要更新
         let shouldUpdate = false;
@@ -112,13 +118,18 @@ http.createServer((req, res) => {
   });
   if (req.method === 'GET' && url.parse(req.url, true).pathname === config.path) {
     const target = getTarget(req);
-    updateRecord(target, (msg) => {
-      if (msg === 'error') {
-        res.statusCode = 400;
-      }
-      console.log(new Date() + ': [' + msg + '] ' + JSON.stringify(target));
-      res.end(msg);
-    });
+    if(target.token != config.token) {
+      res.statusCode = 503;
+      res.end("访问秘钥错误！");
+    } else {
+      updateRecord(target, (code, error) => {
+        if (code === 'error') {
+          res.statusCode = 400;
+        }
+        console.log(new Date() + ': [' + code + '] ' + JSON.stringify(target) + (error?(" error: "+error):""));
+        res.end(error? error:code);
+      });
+    }
   } else {
     res.statusCode = 404;
     res.end();

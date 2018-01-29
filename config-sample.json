@@ -3,5 +3,6 @@
   "AccessKeySecret": "",
   "clientIpHeader": "X-Real-IP",
   "path": "/hack",
-  "port": 8080
+  "port": 8080,
+  "token": ""
 }
